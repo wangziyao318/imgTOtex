@@ -1,27 +1,28 @@
 #!/usr/bin/env python3
 '''
-img2tex program entry point.
+img2tex program.
 '''
-
 import os
 import torch
 import subprocess
 from PIL import Image
 from pathlib import Path
-# from torchvision.io import decode_image, write_png
-# from torchvision.utils import make_grid
-# from torchvision.transforms.v2.functional import pad
+from tqdm import tqdm
 
-
-# Set torch device
-torch.set_default_device("cuda" if torch.cuda.is_available() else "cpu")
+torch.set_default_device('cuda' if torch.cuda.is_available()
+                         else 'mps' if torch.backends.mps.is_available()
+                         else 'cpu')
 device = torch.get_default_device()
 
 def _preprocess():
     '''
     Convert all input images into .png and delete the original.
     '''
-    image_paths = [Path(os.path.join('data', 'input')).iterdir()]
+    if not os.path.exists(os.path.join('data', 'input')):
+        print("Input folder doesn't exist.")
+        exit(1)
+
+    image_paths = list(Path(os.path.join('data', 'input')).iterdir())
 
     # Get all images that need conversion
     convert_image_paths = []
@@ -34,7 +35,7 @@ def _preprocess():
                 exit(1)
 
     # Convert .png and delete other images
-    for image_path in convert_image_paths:
+    for image_path in tqdm(convert_image_paths, total=len(convert_image_paths), desc='Preprocess'):
         Image.open(image_path).save(image_path.with_suffix('.png'))
         os.remove(image_path)
 
@@ -49,6 +50,9 @@ def _img2mat():
         'output': os.path.join('data', 'human_mat'),
         'weight': os.path.join('data', 'human_mat', 'pretrained_weight', 'SGHM-ResNet50.pth')
     }
+
+    if not os.path.exists(os.path.join('data', 'human_mat')):
+        os.mkdir(os.path.join('data', 'human_mat'))
 
     ##
     # Preprocess input images
@@ -80,6 +84,9 @@ def _img2densepose():
         'output': os.path.join('data', 'densepose', 'densepose.pkl')
     }
 
+    if not os.path.exists(os.path.join('data', 'densepose')):
+        os.mkdir(os.path.join('data', 'densepose'))
+    
     ##
     # Preprocess input images and create human mats
     ##
@@ -103,7 +110,7 @@ def _img2densepose():
     # Iterate on densepose data
     from torchvision.io import decode_image, write_png
     from torchvision.transforms.v2.functional import pad
-    for j in range(len(data)):
+    for j in tqdm(range(len(data)), total=len(data), desc='DensePose'):
         # Get filename
         filename = Path(data[j]['file_name']).name
 
@@ -133,7 +140,7 @@ def _img2densepose():
         # Mask the densepose image
         mat = decode_image(os.path.join('data', 'human_mat', filename)).to(device) # (1,H,W)
         mat = mat.to(torch.float32) / 255
-        iuv *= (mat < 0.5)
+        iuv *= (mat >= 0.5)
 
         # Mask the background where i == 0
         iuv[(iuv[0,:,:] == 0).unsqueeze(0).expand([3, -1, -1])] = 0
@@ -142,19 +149,20 @@ def _img2densepose():
         write_png(iuv.cpu(), os.path.join('data', 'densepose', filename))
 
 
-def img2texture(mask_only: bool = False, save_atlas: bool = False):
+def img2texture():
     '''
     1. Preprocess input images.
     2. Create human mats from input images.
     3. Create densepose data for input images.
     4. Create densepose images from densepose data.
     5. Mask the densepose images with the human mats.
-    6. Create SMPL inpaint masks from the densepose and input images.
-    7. Save partial SMPL textures if mask_only == False.
-    8. Save partial Atlas textures if save_atlas == True.
+    6. Create partial SMPL textures from the densepose and input images.
     '''
     ATLAS_PART_SIZE = 128
     SMPL_PART_SIZE = 512 # match stable-diffusion-2-inpainting resolution
+
+    if not os.path.exists(os.path.join('data', 'smpl_texture')):
+        os.mkdir(os.path.join('data', 'smpl_texture'))
 
     ##
     # Create masked densepose
@@ -180,8 +188,8 @@ def img2texture(mask_only: bool = False, save_atlas: bool = False):
     converter = Atlas2Normal(atlas_size=ATLAS_PART_SIZE, normal_size=SMPL_PART_SIZE)
     
     # Iterate on input images
-    image_paths = [Path(os.path.join('data', 'input')).iterdir()]
-    for j in range(len(image_paths)):
+    image_paths = list(Path(os.path.join('data', 'input')).iterdir())
+    for j in tqdm(range(len(image_paths)), total=len(image_paths), desc='Texture'):
         filename = image_paths[j].name
         img = decode_image(image_paths[j]).to(device)
         iuv = decode_image(os.path.join('data', 'densepose', filename)).to(device)
@@ -191,12 +199,13 @@ def img2texture(mask_only: bool = False, save_atlas: bool = False):
         iuv = torch.vstack([iuv[0].unsqueeze(0), iuv[1:3].float() / 255 * (ATLAS_PART_SIZE - 1)]).int()
         
         # Launch the warp kernel to assign atlas textures
+        _, h, w = img.size()
         atlas_textures = wp.zeros((24, ATLAS_PART_SIZE, ATLAS_PART_SIZE), dtype=wp.vec3i)
         img = wp.from_torch(img.permute(1, 2, 0).int(), dtype=wp.vec3i) # (H,W)
         iuv = wp.from_torch(iuv, dtype=wp.int32) # (C,H,W)
 
         wp.launch(kernel=img2atlas,
-                dim=(img.size(1), img.size(2)),
+                dim=(h, w),
                 inputs=[img, iuv, atlas_textures])
         wp.synchronize()
 
@@ -208,26 +217,41 @@ def img2texture(mask_only: bool = False, save_atlas: bool = False):
         smpl_texture = converter.convert(atlas_textures.cpu().numpy())
         smpl_texture = np.uint8((smpl_texture * 255).round()) # (L,L,C)
 
+        # Save SMPL texture
+        Image.fromarray(smpl_texture).save(os.path.join('data', 'smpl_texture', filename))
+        
+
+def texture2mask():
+    '''
+    Create inpaint mask (inverted and padded) from texture.
+    '''
+    if not os.path.exists(os.path.join('data', 'smpl_mask')):
+        os.mkdir(os.path.join('data', 'smpl_mask'))
+
+    from torchvision.io import decode_image
+    texture_paths = list(Path(os.path.join('data', 'smpl_texture')).iterdir())
+    for j in tqdm(range(len(texture_paths)), total=len(texture_paths), desc='Mask'):
+        smpl_texture = decode_image(texture_paths[j]).to(device)
+
         # Create inpaint mask (inverted and padded)
         smpl_mask = (smpl_texture[:,:,0] < 2) & (smpl_texture[:,:,1] < 2) & (smpl_texture[:,:,2] < 2) # (L,L)
-        smpl_mask = np.uint8(smpl_mask) * 255
-        
-        # Save smpl texture and mask
-        if not mask_only:
-            Image.fromarray(smpl_texture).save(os.path.join('data', 'smpl_texture', filename))
-        Image.fromarray(smpl_mask).save(os.path.join('data', 'smpl_mask', filename))
+        smpl_mask = (smpl_mask).to(torch.uint8) * 255
+        Image.fromarray(smpl_mask).save(os.path.join('data', 'smpl_mask', texture_paths[j].name))
 
 
 def train():
     '''
     Finetune stable-diffusion-2-inpainting model with DreamBooth.
     '''
+    if not os.path.exists(os.path.join('data', 'trained_model')):
+        os.mkdir(os.path.join('data', 'trained_model'))
+
     import time
     DIFFUSERS = {
         'model': 'stabilityai/stable-diffusion-2-inpainting',
-        'input_dir': os.path.join('data', 'train', 'instance'),
-        'mask_dir': os.path.join('data', 'train', 'mask'),
-        'output_dir': os.path.join('data', 'trained_model', str(time.time_ns())),
+        'input_dir': os.path.join('data', 'training_data', 'image'),
+        'mask_dir': os.path.join('data', 'training_data', 'mask'),
+        'output_dir': os.path.join('data', 'trained_model', str(int(time.time()))),
         'input_prompt': 'a smpl texturemap',
         'resolution': 512, # all training data will be resized into this resolution
         'max_train_steps': 500 * 3,
@@ -251,31 +275,34 @@ def train():
 
 def render():
     '''
-    Render a front image of textured SMPL human model
+    Render front images of textured SMPL human model
     '''
-    from pytorch3d.io import load_obj
-    from pytorch3d.renderer import TexturesUV, look_at_view_transform, FoVPerspectiveCameras, RasterizationSettings, MeshRenderer, MeshRasterizer, HardPhongShader, BlendParams
-    from pytorch3d.structures import Meshes
+    if not os.path.exists(os.path.join('data', 'render')):
+        os.mkdir(os.path.join('data', 'render'))
 
-    device = torch.get_default_device()
+    from pytorch3d.io import load_obj
+    from pytorch3d.structures import Meshes
+    from pytorch3d.renderer import (
+        look_at_view_transform,
+        FoVPerspectiveCameras,
+        RasterizationSettings,
+        MeshRenderer,
+        MeshRasterizer,
+        HardPhongShader,
+        BlendParams,
+        TexturesUV
+    )
 
     # Load object
-    verts, faces, aux = load_obj('data/smpl/smpl_uv.obj', load_textures=False, device=device)
+    verts, faces, aux = load_obj(
+        os.path.join('data', 'smpl_model', 'smpl_uv.obj'),
+        load_textures=False,
+        device=device
+    )
 
     faces_idx = faces.verts_idx # index of each face
     uvs = aux.verts_uvs # uv coordinate of each vertex
     faces_uvs = faces.textures_idx # uv coordinate of each face
-
-    # Load texture image 512x512
-    from torchvision.io import decode_image, write_png
-    texture_image = decode_image('data/train/smpl texturemap, ((Anne Parillaud)), blonde, pink dress.jpg')
-    texture_image = (texture_image.to(torch.float32) / 255).permute(1, 2, 0).to(device) # (H,W,C)
-
-    # Create texture
-    textures = TexturesUV(maps=[texture_image], faces_uvs=[faces_uvs], verts_uvs=[uvs])
-
-    # Create mesh
-    mesh = Meshes(verts=[verts], faces=[faces_idx], textures=textures)
 
     # Set camera
     R, T = look_at_view_transform(1.59, 0, 0, at=[[0, -.31 ,0]], device=device)
@@ -285,7 +312,7 @@ def render():
     blend_params = BlendParams(background_color=(0,0,0))
 
     # Set rasterization
-    raster_settings = RasterizationSettings(image_size=2048, blur_radius=0, faces_per_pixel=1)
+    raster_settings = RasterizationSettings(image_size=512)
 
     renderer = MeshRenderer(
         rasterizer=MeshRasterizer(
@@ -301,11 +328,74 @@ def render():
         )
     )
 
-    images = renderer(mesh)
-    image = images[0, ..., :3].permute(2,0,1) # (C,H,W) remove alpha channel
-    image = (image * 255).to(torch.uint8)
+    # Load texture image 512x512
+    from torchvision.io import decode_image, write_png
+    texture_paths = list(Path(os.path.join('data', 'smpl_texture_inpaint')).iterdir())
+    for j in tqdm(range(len(texture_paths)), total=len(texture_paths), desc='Render'):
+        texture_image = decode_image(texture_paths[j]).to(device)
+        texture_image = (texture_image.to(torch.float32) / 255).permute(1, 2, 0) # (H,W,C)
 
-    write_png(image.cpu(), 'data/render/out.png')
+        # Create texture
+        textures = TexturesUV(maps=[texture_image], faces_uvs=[faces_uvs], verts_uvs=[uvs])
+
+        # Create mesh
+        mesh = Meshes(verts=[verts], faces=[faces_idx], textures=textures)
+
+        images = renderer(mesh)
+        image = images[0, ..., :3].permute(2,0,1) # (C,H,W) remove alpha channel
+        image = (image * 255).to(torch.uint8)
+
+        write_png(image.cpu(), os.path.join('data', 'render', texture_paths[j].name))
+
+
+def inpaint():
+    '''
+    Inpaint partial SMPL texture with mask.
+    '''
+    DIFFUSERS = {
+        'model': os.path.join('data', 'trained_model', 'inpaint_1e-6'),
+        'prompt': 'a smpl texturemap',
+        'guidance_scale': 3,
+        'num_inference_steps': 100,
+        'use_tf32': True,
+        'preprocess': False # interpolate small holes
+    }
+    if not os.path.exists(os.path.join('data', 'smpl_texture_inpaint')):
+        os.mkdir(os.path.join('data', 'smpl_texture_inpaint'))
+    
+    if DIFFUSERS['use_tf32']:
+        torch.backends.cuda.matmul.allow_tf32 = True
+
+    from diffusers import StableDiffusionInpaintPipeline
+    pipeline = StableDiffusionInpaintPipeline.from_pretrained(
+        DIFFUSERS['model'],
+        torch_dtype=torch.float16,
+        use_safetensors=True
+    )
+    pipeline.enable_model_cpu_offload()
+
+    import numpy as np
+    from PIL import ImageFilter, ImageOps
+
+    texture_paths = list(Path(os.path.join('data', 'smpl_texture')).iterdir())
+    for j in tqdm(range(len(texture_paths)), total=len(texture_paths), desc='Inpaint', position=1):
+        im = Image.open(texture_paths[j])
+        im_np = np.array(im)
+        im_mask = (im_np[:,:,0] < 2) & (im_np[:,:,1] < 2) & (im_np[:,:,2] < 2) # (L,L)
+        im_mask = Image.fromarray(np.uint8(im_mask) * 255)
+
+        # Preprocess texture and mask to interpolate small holes
+        if DIFFUSERS['preprocess']:
+            im_eroded = im.filter(ImageFilter.MaxFilter(3))
+            im = Image.composite(im, im_eroded, ImageOps.invert(im_mask))
+
+            im_eroded = np.array(im_eroded)
+            im_mask = Image.fromarray((im_eroded[:,:,0] < 2) & (im_eroded[:,:,1] < 2) & (im_eroded[:,:,1] < 2))
+            im_mask = im_mask.convert("L").filter(ImageFilter.MaxFilter(5)).convert("P")
+
+        image = pipeline(prompt=DIFFUSERS['prompt'], image=im, mask_image=im_mask, guidance_scale=DIFFUSERS['guidance_scale'], num_inference_steps=DIFFUSERS['num_inference_steps']).images[0]
+
+        image.save(os.path.join('data', 'smpl_texture_inpaint', texture_paths[j].name))
 
 
 def main():
@@ -314,19 +404,22 @@ def main():
     parser.add_argument(
         'command',
         nargs=1,
-        choices=['i2tex', 'i2mask', 'render', 'train'],
+        choices=['i2tex', 'inpaint', 'tex2mask', 'render', 'train'],
         help='[i2tex] images to SMPL textures\n'
-        + '[i2mask] images to SMPL masks\n'
+        + '[inpaint] inpaint SMPL textures\n'
+        + '[tex2mask] SMPL textures to SMPL masks\n'
         + '[render] render SMPL front view\n'
-        + '[train] train with dreambooth'
+        + '[train] train sd2-inpainting with dreambooth'
     )
     args = parser.parse_args()
 
     match args.command[0]:
         case 'i2tex':
             img2texture()
-        case 'i2mask':
-            img2texture(mask_only=True)
+        case 'inpaint':
+            inpaint()
+        case 'tex2mask':
+            texture2mask()
         case 'render':
             render()
         case 'train':

@@ -5,6 +5,10 @@
 git clone --recursive https://github.com/wangziyao318/img2tex.git
 cd img2tex
 
+# Download pretrained weight for human matting
+# https://drive.google.com/drive/folders/15mGzPJQFEchaZHt9vgbmyOy46XxWtEOZ?usp=sharing
+# Place it in data/human_mat/pretrained_weight/ folder
+
 # Install requirements
 conda create -n img2tex python=3.12
 conda activate img2tex

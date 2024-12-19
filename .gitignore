@@ -3,9 +3,10 @@
 
 # Python
 __pycache__
-/data
 
-# temp
-/scripts
-/img
-/test
+# data
+*.png
+*.jpg
+densepose.pkl
+SGHM-ResNet50.pth
+/data/trained_model
