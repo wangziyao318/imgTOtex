@@ -1,0 +1,53 @@
+torch
+torchvision
+warp-lang
+detectron2/
+pycocotools
+av
+scipy
+opencv-python-headless
+UVTextureConverter @ git+https://github.com/kuboshizuma/UVTextureConverter@master
+diffusers
+accelerate
+transformers
+ftfy
+tensorboard
+peft
+sentencepiece
+bitsandbytes
+# torch-tb-profiler
+
+
+
+# inpaint
+diffusers==0.9.0
+accelerate>=0.16.0
+torchvision
+transformers>=4.21.0
+ftfy
+tensorboard
+Jinja2
+
+# additional remarks
+'''
+
+python ./diffusers/scripts/convert_diffusers_to_original_stable_diffusion.py --model_path data/trained_model/2gas_const_1e-6/ --checkpoint_path data/my.safetensors --half --use_safetensors
+
+
+
+git submodule update --init --recursive
+
+apt install libjpeg-dev for a1111 pillow compile
+apt install rustc for a1111 tokenizer compile
+
+install submodule without editable flag -e,
+pip 25.0 will deprecate the -e local install
+
+# config accelerate before training, enable torch dynamo compiler and select default inductor,
+# enable numa efficiency if use nvidia gpu
+# use mixed bf16 precision
+accelerate config
+
+# login to huggingface to retrieve models
+huggingface-cli login
+'''

@@ -1,0 +1,11 @@
+# mac
+.DS_Store
+
+# Python
+__pycache__
+/data
+
+# temp
+/scripts
+/img
+/test
