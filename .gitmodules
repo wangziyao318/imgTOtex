@@ -1,0 +1,6 @@
+[submodule "SemanticGuidedHumanMatting"]
+	path = SemanticGuidedHumanMatting
+	url = https://github.com/cxgincsu/SemanticGuidedHumanMatting.git
+[submodule "detectron2"]
+	path = detectron2
+	url = https://github.com/facebookresearch/detectron2.git
