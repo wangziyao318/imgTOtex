@@ -117,9 +117,9 @@
 
 \section{Introduction}
 
-The paper SMPLitex \cite{casas2023smplitex} proposed a fine-tuned \texttt{stable-diffusion-v1-4} model for 3D human texture estimation from a single image. The SMPLitex model is a general stable diffusion model with two typical use cases: \texttt{text2image} and \texttt{image2image}. The former generates a texture from a text prompt, while the latter generates a texture from another texture. The SMPLitex model is fine-tuned with DreamBooth such that its generated textures fit in the unwrapped UV map of SMPL human model. DensePose \cite{guler2018densepose} is a technique to map all human pixels of a 2D image to the 3D surface of human body. With the help of DensePose, one can create a partial texture (due to FoV blocking) from a single image, and the partial texture becomes the input of \texttt{image2image} task to reconstruct a full texture. That is the general idea of the SMPLitex paper.
+The paper SMPLitex \cite{casas2023smplitex} proposed a fine-tuned \texttt{stable-diffusion-v1-4} model for 3D human texture estimation from a single image. The SMPLitex model is a general stable diffusion model with two typical use cases: \texttt{text2image} and \texttt{image2image}. The former generates a texture from a text prompt, while the latter generates a texture from another texture. The SMPLitex model is fine-tuned with DreamBooth such that its generated textures fit in the unwrapped UV map of the SMPL human model. DensePose \cite{guler2018densepose} is a technique to map all human pixels of a 2D image to the 3D surface of the human body. With the help of DensePose, one can create a partial texture (due to FoV blocking) from a single image, and the partial texture becomes the input of \texttt{image2image} task to reconstruct a full texture. That is the general idea of the SMPLitex paper.
 
-This paper fine-tuned \texttt{stable-diffusion-2-inpainting} model based on the idea of the SMPLitex paper above. The base model is an inpainting-specialized stable diffusion model with only one use: \texttt{inpainting}. Compared with the \texttt{image2image} task, \texttt{inpainting} takes a partial texture as well as an inpainting mask as input and only reconstruct the masked area (holes and missing parts except the texture area) in the partial texture. This ensures the original partial texture is not altered after inpainting. On the contrary, \texttt{image2image} generates a new texture for several denoising steps with the partial texture as the initial noise image. During the denoising process, the partial texture is distorted greatly. As a workaround, the \texttt{image2image} output is masked with the original partial texture to ensure the original texture area remains constant. This branch of \texttt{image2image} used by SMPLitex is also known as \texttt{legacy\_inpaint}. It is now deprecated because its inpainted area is inconsistent with the original texture area. With such constraint, I can see from the results in the SMPLitex paper that the front and back colors of the clothes on a rendered 3D human are different.
+This paper fine-tuned \texttt{stable-diffusion-2-inpainting} model based on the idea of the SMPLitex paper above. The base model is an inpainting-specialized stable diffusion model with only one use: \texttt{inpainting}. Compared with the \texttt{image2image} task, \texttt{inpainting} takes a partial texture as well as an inpainting mask as input and only reconstructs the masked area (holes and missing parts except the texture area) in the partial texture. This ensures the original partial texture is not altered after inpainting. On the contrary, \texttt{image2image} generates a new texture for several denoising steps with the partial texture as the initial noise image. During the denoising process, the partial texture is distorted greatly. As a workaround, the \texttt{image2image} output is masked with the original partial texture to ensure the original texture area remains constant. This branch of \texttt{image2image} used by SMPLitex is also known as \texttt{legacy\_inpaint}. It is now deprecated because its inpainted area is inconsistent with the original texture area. With such constraint, I can see from the results in the SMPLitex paper that the front and back colors of the clothes on a rendered 3D human are different.
 
 \begin{figure}[h]
   \centering
@@ -129,11 +129,11 @@ This paper fine-tuned \texttt{stable-diffusion-2-inpainting} model based on the 
   \label{fig:smplitex_sample}
 \end{figure}
 
-As shown in Fig \ref{fig:smplitex_sample}, the top left is a partial texture, the top right is its inpainting mask, the botton left is legacy inpainted texture using SMPLitex model without any image refinement techniques, and the bottom right is legacy inpainted texture with text ``green'' appended into the prompt so that the inpaint area is at least in a similar color compared with the original texture area. However, one can distinguish the original and inpaint textures even in the bottom right image, and the face reconstruction is bad in the SMPLitex model. Actually, SMPLitex used CodeFormer \cite{zhou2022towards} to restore faces in their results.
+As shown in Fig \ref{fig:smplitex_sample}, the top left is a partial texture, the top right is its inpainting mask, the bottom left is legacy inpainted texture using SMPLitex model without any image refinement techniques, and the bottom right is a legacy inpainted texture with the text ``green'' appended into the prompt so that the inpaint area is at least in a similar color compared with the original texture area. However, one can distinguish the original and inpaint textures even in the bottom right image, and the face reconstruction is bad in the SMPLitex model. Actually, SMPLitex used CodeFormer \cite{zhou2022towards} to restore faces in their results.
 
-My work in this paper addressed the issue of the SMPLitex model above. I used DreamBooth to fine-tune stable-diffusion-2-inpainting model. Unlike general models, the training dataset for an inpainting model includes images as well as masks. The training images were selected from the SMPLitex dataset and training masks were generated using DensePose from DeepFashion-MultiModal dataset \cite{jiang2022text2human}. Note that fine-tuning an inpainting model is also possible with only training images, where the training masks are generated randomly using algorithms during training. However, in this way, the inpainting areas masked will be random and the model will perform unsatisfyingly in inference, based on my experiment results.
+My work in this paper addressed the issue of the SMPLitex model above. I used DreamBooth to fine-tune the \texttt{stable-diffusion-2-inpainting} model. Unlike general models, the training dataset for an inpainting model includes images as well as masks. The training images were selected from the SMPLitex dataset and training masks were generated using DensePose from the DeepFashion-MultiModal dataset \cite{jiang2022text2human}. Note that fine-tuning an inpainting model is also possible with only training images, where the training masks are generated randomly using algorithms during training. However, in this way, the inpainting areas masked will be random and the model will perform unsatisfyingly in inference, based on my experiment results.
 
-For results comparison, SSIM and LPIPS metrics were adopted because of their approximation to human perception.
+For results comparison, SSIM and LPIPS metrics were adopted because they approximated human perception.
 
 \section{Related Work}
 
@@ -144,24 +144,24 @@ Several remarkable works on machine learning form the foundation of my work. The
 Stable diffusion is a latent diffusion model that can generate images from random noise using text-guided denoising schedulers. A stable diffusion model has three components: variational autoencoders/autodecoders (VAE), a text encoder (CLIP), and a U-Net.
 
 \begin{itemize}
-  \item VAE produces input varied in dimension as output. VAE encoders reduce the dimension of input, and VAE decoders increase the dimension of input. A 512x512 image has 3x512x512 dimensions (3 for RGB channels), which will result in curse of dimensionality without proper encoding.
+  \item VAE produces input varied in dimension as output. VAE encoders reduce the dimension of input, and VAE decoders increase the dimension of input. A 512x512 image has 3x512x512 dimensions (3 for RGB channels), which will result in the curse of dimensionality without proper encoding.
   \item CLIP encodes the input text prompt as text embedding vectors to use in U-Net.
-  \item U-Net performs denoising guided by text embeddings. Fine-tuning a stable diffusion model is actually training only the last few layers (for simplicity) of the U-Net in it.
+  \item U-Net performs denoising guided by text embeddings. Fine-tuning a stable diffusion model is training only the last few layers (for simplicity) of the U-Net in it.
 \end{itemize}
 
 First, a randomly-generated pure noise image goes through several VAE encoders to downscale and reduce dimensionality. Then, it is denoised with a U-Net guided by CLIP-encoded text embeddings. Finally, the output image goes through several VAE decoders to upscale and restore its dimentionality.
 
 \subsection{DensePose}
 
-DensePose (dense human pose estimation) \cite{guler2018densepose} is a pipeline with trained models to map all human pixels of an 2D image to the 3D surface of the human body. It is such important that it connects a 2D image of human to a partial texture of Atlas UV map and assigns pixels accurately to different parts of the UV map.
+DensePose (dense human pose estimation) \cite{guler2018densepose} is a pipeline with trained models to map all human pixels of a 2D image to the 3D surface of the human body. It is such important that it connects a 2D image to a partial texture of Atlas UV map and assigns pixels accurately to different parts of the UV map.
 
-DensePose stores the mapping of pixels to parts in IUV images. The DensePose IUV image stores indexes and UV coordinates of pixels in a 2D image. For each pixel, the index I is an integer in \([0,24]\) (24 human parts + 1 background) and the U\&V are float numbers in \((0,1)\) indicating relative coordinate of the pixel in that human part (for background pixel \(I==0\), UV are zeros).
+DensePose stores the mapping of pixels to parts in IUV images. The DensePose IUV image stores indexes and UV coordinates of pixels in a 2D image. For each pixel, the index I is an integer in \([0,24]\) (24 human parts + 1 background), and the U\&V are float numbers in \((0,1)\) indicating relative coordinate of the pixel in that human part (for background pixel \(I==0\), UV are zeros).
 
-The UV map compatible with DensePose is Atlas, with 24 human parts arranged in a \(6x4\) grid. Nonetheless, the illogical arrangement of human parts in Atlas makes its inpainting more difficult than SMPL, and converting Atlas to SMPL UV map is quite easy. Therefore, I fine-tuned the model based on SMPL textures.
+The UV map compatible with DensePose is Atlas, with 24 human parts arranged in a \(6x4\) grid. Nonetheless, the illogical arrangement of human parts in Atlas makes its inpainting more difficult than SMPL, and converting Atlas to an SMPL UV map is quite easy. Therefore, I fine-tuned the model based on SMPL textures.
 
 \subsection{Semantic Guided Human Matting}
 
-Semantic Guided Human Matting \cite{chen2022robust} is a semantic segmentation model specifically trained for human. It is very robust and accurate in removing the background of a portrait. In the paper, it is used together with DensePose to generate the masked DensePose IUV images.
+Semantic Guided Human Matting \cite{chen2022robust} is a semantic segmentation model specifically trained for humans. It is very robust and accurate in removing the background of a portrait. In the paper, it is used together with DensePose to generate the masked DensePose IUV images.
 
 \begin{figure}[h]
   \centering
@@ -171,17 +171,17 @@ Semantic Guided Human Matting \cite{chen2022robust} is a semantic segmentation m
   \label{fig:human_mat}
 \end{figure}
 
-As shown in Fig \ref{fig:human_mat}, the left is a DensePose IUV image, the middle is a human mat, and the right is the composite of them (masked DensePose IUV image). Since DensePose is not good at accurate separation of human and background, I used Semantic Guided Human Matting to mask the DensePose IUV image and remove background edges. You can see from the right IUV image the clear edges of ears and hands.
+As shown in Fig \ref{fig:human_mat}, the left is a DensePose IUV image, the middle is a human mat, and the right is the composite of them (masked DensePose IUV image). Since DensePose is not good at the accurate separation of human and background, I used Semantic Guided Human Matting to mask the DensePose IUV image and remove background edges. You can see from the right IUV image the clear edges of ears and hands.
 
 \subsection{DreamBooth}
 
-DreamBooth \cite{ruiz2023dreambooth} is a technique to fine-tune stable diffusion models with very few training data (typically 3-5 images) and a text identifier. The aim is to instruct the model to generate only certain style of images when the idenfier is in the text prompt, like the texture of SMPL UV map.
+DreamBooth \cite{ruiz2023dreambooth} is a technique to fine-tune stable diffusion models with very few training data (typically 3-5 images) and a text identifier. The aim is to instruct the model to generate only a certain style of images when the identifier is in the text prompt, like the texture of the SMPL UV map.
 
-To avoid overfitting and loss of prior knowledge, the selected identifier (``sks'' in DreamBooth paper) has least relation to existing text embeddings. In a fine-tuned model, the prompt ``a texture'' can means any textures, while the prompt ``a sks texture'' instructs the model to generate only textures of the SMPL UV map.
+To avoid overfitting and loss of prior knowledge, the selected identifier (``sks'' in DreamBooth paper) has the least relation to existing text embeddings. In a fine-tuned model, the prompt ``a texture'' can mean any textures, while the prompt ``a sks texture'' instructs the model to generate only textures of the SMPL UV map.
 
 \section{Methods}
 
-The methods are for quantitative comparision of my model with SMPLitex model.
+The methods are for quantitative comparison of my model with the SMPLitex model.
 
 \subsection{SSIM}
 
@@ -193,7 +193,7 @@ Equation 1 is the formula of SSIM, where \(\mu\) represents pixel sample mean, \
   SSIM(x,y)=\frac{(2\mu_x\mu_y+c_1)(2\sigma_{xy}+c2)}{({\mu_x}^2+{\mu_y}^2+c_1)({\sigma_x}^2+{\sigma_y}^2+c_2)}
 \end{equation}
 
-SSIM score is similar to human perception. The range of SSIM is \([-1,1]\), where 0 indicates no similarity, 1 is structural identical, and -1 is perfect anti-correlation.
+SSIM score is similar to human perception. The range of SSIM is \([-1,1]\), where 0 indicates no similarity, 1 is structurally identical, and -1 is perfect anti-correlation.
 
 However, SSIM is vulnerable to compression, so it may not perform well when comparing compressed JPGs obtained from the Internet.
 
