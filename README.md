@@ -1,5 +1,7 @@
 # img2tex
 
+## Program
+
 ```sh
 # Clone the repo
 git clone --recursive https://github.com/wangziyao318/img2tex.git
@@ -22,4 +24,18 @@ accelerate config
 
 # Run the program
 ./main.py
+```
+
+## Report
+
+```sh
+cd report
+
+# Generate acmart.cls
+latex acmart.ins
+
+# Config VSCode LaTeX Workshop in workspace settings
+# "latex-workshop.latex.outDir": "%DIR%/out"
+
+# Compile tex to pdf
 ```

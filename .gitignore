@@ -1,12 +1,24 @@
-# mac
+# Mac
 .DS_Store
+
+# VSCode
+/.vscode
 
 # Python
 __pycache__
 
 # data
-*.png
-*.jpg
-densepose.pkl
-SGHM-ResNet50.pth
+/data/densepose
+/data/human_mat
+/data/input
+/data/render
+/data/smpl_texture
+/data/smpl_texture_inpaint
 /data/trained_model
+/data/training_data
+
+# Latex
+/DHumanReport
+/report/acmart.cls
+/report/acmart.log
+/report/out
