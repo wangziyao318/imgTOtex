@@ -228,14 +228,14 @@ def texture2mask():
     if not os.path.exists(os.path.join('data', 'smpl_mask')):
         os.mkdir(os.path.join('data', 'smpl_mask'))
 
-    from torchvision.io import decode_image
+    import numpy as np
     texture_paths = list(Path(os.path.join('data', 'smpl_texture')).iterdir())
     for j in tqdm(range(len(texture_paths)), total=len(texture_paths), desc='Mask'):
-        smpl_texture = decode_image(texture_paths[j]).to(device)
+        smpl_texture = np.array(Image.open(texture_paths[j]))
 
         # Create inpaint mask (inverted and padded)
         smpl_mask = (smpl_texture[:,:,0] < 2) & (smpl_texture[:,:,1] < 2) & (smpl_texture[:,:,2] < 2) # (L,L)
-        smpl_mask = (smpl_mask).to(torch.uint8) * 255
+        smpl_mask = np.uint8(smpl_mask) * 255
         Image.fromarray(smpl_mask).save(os.path.join('data', 'smpl_mask', texture_paths[j].name))
 
 
@@ -353,7 +353,7 @@ def inpaint():
     Inpaint partial SMPL texture with mask.
     '''
     DIFFUSERS = {
-        'model': os.path.join('data', 'trained_model', 'inpaint_1e-6'),
+        'model': os.path.join('data', 'trained_model', 'inpaint'),
         'prompt': 'a smpl texturemap',
         'guidance_scale': 3,
         'num_inference_steps': 100,
@@ -370,7 +370,8 @@ def inpaint():
     pipeline = StableDiffusionInpaintPipeline.from_pretrained(
         DIFFUSERS['model'],
         torch_dtype=torch.float16,
-        use_safetensors=True
+        # safety_checker=None # bypass NSFW check in sd1.4, not required in sd2+
+        use_safetensors=True # for safetensors file
     )
     pipeline.enable_model_cpu_offload()
 

@@ -22,3 +22,7 @@ __pycache__
 /report/acmart.cls
 /report/acmart.log
 /report/out
+
+# temp
+/data
+/test
