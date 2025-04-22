@@ -12,10 +12,10 @@ __pycache__
 /data/human_mat
 /data/input
 /data/render
+/data/smpl_mask
 /data/smpl_texture
 /data/smpl_texture_inpaint
 /data/trained_model
-# /data/training_data
 
 # Latex
 /DHumanReport

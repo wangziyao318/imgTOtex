@@ -1,9 +1,15 @@
 # 3D Human Texture Inpainting from a Single Image (imgTOtex)
 
+## Video Demo
+
+See `demo.mp4`
+
+## Usage
+
 ```sh
 # Clone the repo
 git clone --recursive https://github.com/wangziyao318/imgTOtex.git
-cd img2tex
+cd imgTOtex
 
 # Download SGHM pretrained weight for human matting
 # https://drive.google.com/drive/folders/15mGzPJQFEchaZHt9vgbmyOy46XxWtEOZ?usp=sharing
@@ -18,7 +24,7 @@ pip install -r requirements.txt
 # login to huggingface so that you can download stabilityai/stable-diffusion-2-inpainting
 huggingface-cli login
 
-# Config accelerate if you want to use torch dynamo inductor or numa topology
+# Config accelerate to use torch dynamo inductor, numa topology, and deepspeed
 accelerate config
 
 # Run the program

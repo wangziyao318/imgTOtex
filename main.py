@@ -371,7 +371,7 @@ def inpaint():
         DIFFUSERS['model'],
         torch_dtype=torch.float16,
         # safety_checker=None # bypass NSFW check in sd1.4, not required in sd2+
-        use_safetensors=True # for safetensors file
+        # use_safetensors=True # for safetensors file
     )
     pipeline.enable_model_cpu_offload()
 
