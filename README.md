@@ -1,41 +1,26 @@
-# img2tex
-
-## Program
+# 3D Human Texture Inpainting from a Single Image (imgTOtex)
 
 ```sh
 # Clone the repo
-git clone --recursive https://github.com/wangziyao318/img2tex.git
+git clone --recursive https://github.com/wangziyao318/imgTOtex.git
 cd img2tex
 
-# Download pretrained weight for human matting
+# Download SGHM pretrained weight for human matting
 # https://drive.google.com/drive/folders/15mGzPJQFEchaZHt9vgbmyOy46XxWtEOZ?usp=sharing
 # Place it in data/human_mat/pretrained_weight/ folder
 
 # Install requirements
+# You may need to install torch and torchvision first, and run pip install several times
 conda create -n img2tex python=3.12
 conda activate img2tex
 pip install -r requirements.txt
 
-# Another way to install pytorch3d in case pip build failed
-# conda install pytorch3d -c pytorch3d
+# login to huggingface so that you can download stabilityai/stable-diffusion-2-inpainting
+huggingface-cli login
 
 # Config accelerate if you want to use torch dynamo inductor or numa topology
 accelerate config
 
 # Run the program
 ./main.py
-```
-
-## Report
-
-```sh
-cd report
-
-# Generate acmart.cls
-latex acmart.ins
-
-# Config VSCode LaTeX Workshop in workspace settings
-# "latex-workshop.latex.outDir": "%DIR%/out"
-
-# Compile tex to pdf
 ```

@@ -15,7 +15,7 @@ __pycache__
 /data/smpl_texture
 /data/smpl_texture_inpaint
 /data/trained_model
-/data/training_data
+# /data/training_data
 
 # Latex
 /DHumanReport
