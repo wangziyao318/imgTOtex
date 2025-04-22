@@ -2,7 +2,7 @@
 
 ## Video Demo
 
-See `demo.mp4`
+See [demo.mp4](./demo.mp4)
 
 ## Usage
 
